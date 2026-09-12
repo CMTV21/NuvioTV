@@ -207,7 +207,6 @@ class StartupSyncService @Inject constructor(
                 "plugins" -> pullRealtimePlugins(profileId)
                 "library" -> pullNuvioLibrary(profileId)
                 "watch_progress" -> {
-                    watchProgressSyncService.restoreLastPushTimestamp(profileId)
                     syncWatchProgressDelta(
                         profileId = profileId,
                         pushUnsynced = false,
@@ -215,8 +214,7 @@ class StartupSyncService @Inject constructor(
                     )
                 }
                 "watched_items" -> {
-                    watchedItemsSyncService.restoreLastPushTimestamp(profileId)
-                    if (watchProgressSyncService.shouldUseSupabaseWatchProgressSync()) {
+                    if (watchProgressSyncService.shouldUseSupabaseWatchProgressSync(profileId)) {
                         pullWatchedItemsDelta(profileId = profileId, pushUnsynced = false)
                     } else {
                         watchProgressRepository.hasCompletedInitialWatchedItemsPull = true
@@ -309,9 +307,7 @@ class StartupSyncService @Inject constructor(
         if (authManager.authState.value !is AuthState.FullAccount) return false
 
         val profileId = profileManager.activeProfileId.value
-        val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync()
-        watchProgressSyncService.restoreLastPushTimestamp(profileId)
-        watchedItemsSyncService.restoreLastPushTimestamp(profileId)
+        val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync(profileId)
         Log.d(
             TAG,
             "Periodic watch state pull: profile=$profileId shouldUseSupabaseWatchProgressSync=$shouldUseSupabaseWatchProgressSync"
@@ -460,9 +456,7 @@ class StartupSyncService @Inject constructor(
             }
             pullBroadRemoteData(profileId, includeProfileSettings)
 
-            val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync()
-            watchProgressSyncService.restoreLastPushTimestamp(profileId)
-            watchedItemsSyncService.restoreLastPushTimestamp(profileId)
+            val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync(profileId)
             Log.d(
                 TAG,
                 "Watch progress sync: shouldUseSupabaseWatchProgressSync=$shouldUseSupabaseWatchProgressSync"
@@ -509,9 +503,7 @@ class StartupSyncService @Inject constructor(
                 return Result.success(Unit)
             }
             pullBroadRemoteData(profileId, includeProfileSettings)
-            val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync()
-            watchProgressSyncService.restoreLastPushTimestamp(profileId)
-            watchedItemsSyncService.restoreLastPushTimestamp(profileId)
+            val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync(profileId)
             Log.d(
                 TAG,
                 "Warm watch progress sync: shouldUseSupabaseWatchProgressSync=$shouldUseSupabaseWatchProgressSync"

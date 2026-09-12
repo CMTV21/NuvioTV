@@ -461,12 +461,35 @@ fun AdvancedSettingsContent(
                         )
                     }
                 )
+                SettingsToggleRow(
+                    title = stringResource(R.string.advanced_rgb565),
+                    subtitle = stringResource(R.string.advanced_rgb565_subtitle),
+                    checked = uiState.rgb565Enabled,
+                    onToggle = {
+                        viewModel.onEvent(
+                            AdvancedSettingsEvent.SetRgb565Enabled(
+                                !uiState.rgb565Enabled
+                            )
+                        )
+                    }
+                )
                 val profileManager = remember {
                     dagger.hilt.android.EntryPointAccessors.fromApplication(
                         context.applicationContext,
                         ProfileManagerEntryPoint::class.java
                     ).profileManager()
                 }
+                val startupSplashEnabled by profileManager.startupSplashEnabled.collectAsState()
+                SettingsToggleRow(
+                    title = stringResource(R.string.appearance_startup_splash),
+                    subtitle = stringResource(R.string.appearance_startup_splash_subtitle),
+                    checked = startupSplashEnabled,
+                    onToggle = {
+                        scope.launch {
+                            profileManager.setStartupSplashEnabled(!startupSplashEnabled)
+                        }
+                    }
+                )
                 val rememberLastProfileEnabled by profileManager.rememberLastProfileEnabled.collectAsState()
                 SettingsToggleRow(
                     title = stringResource(R.string.advanced_remember_last_profile),
@@ -475,6 +498,18 @@ fun AdvancedSettingsContent(
                     onToggle = {
                         scope.launch {
                             profileManager.setRememberLastProfileEnabled(!rememberLastProfileEnabled)
+                        }
+                    }
+                )
+
+                val confirmExitEnabled by profileManager.confirmExitEnabled.collectAsState()
+                SettingsToggleRow(
+                    title = stringResource(R.string.advanced_confirm_exit),
+                    subtitle = stringResource(R.string.advanced_confirm_exit_subtitle),
+                    checked = confirmExitEnabled,
+                    onToggle = {
+                        scope.launch {
+                            profileManager.setConfirmExitEnabled(!confirmExitEnabled)
                         }
                     }
                 )
@@ -506,6 +541,18 @@ fun AdvancedSettingsContent(
                         viewModel.onEvent(
                             AdvancedSettingsEvent.SetPlaybackIssueReportsEnabled(
                                 !uiState.playbackIssueReportsEnabled
+                            )
+                        )
+                    }
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.advanced_player_stats_hud),
+                    subtitle = stringResource(R.string.advanced_player_stats_hud_subtitle),
+                    checked = uiState.playerStatsHudEnabled,
+                    onToggle = {
+                        viewModel.onEvent(
+                            AdvancedSettingsEvent.SetPlayerStatsHudEnabled(
+                                !uiState.playerStatsHudEnabled
                             )
                         )
                     }

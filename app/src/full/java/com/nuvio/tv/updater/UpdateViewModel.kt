@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -30,7 +31,8 @@ data class UpdateUiState(
     val showUnknownSourcesDialog: Boolean = false,
     val errorMessage: String? = null,
     val feedbackMessage: String? = null,
-    val updateBannerEnabled: Boolean = true
+    val updateBannerEnabled: Boolean = true,
+    val updateChannel: UpdateChannel = UpdateChannel.STABLE
 )
 
 @HiltViewModel
@@ -43,11 +45,18 @@ class UpdateViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(UpdateUiState())
     val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
+    private var updateCheckJob: Job? = null
 
     init {
         viewModelScope.launch {
             val enabled = updatePreferences.updateBannerEnabled.first()
-            _uiState.update { it.copy(updateBannerEnabled = enabled) }
+            val channel = updatePreferences.getOrInitializeUpdateChannel()
+            _uiState.update {
+                it.copy(
+                    updateBannerEnabled = enabled,
+                    updateChannel = channel
+                )
+            }
             if (BuildConfig.FEATURE_IN_APP_UPDATES_ENABLED && enabled && !BuildConfig.IS_DEBUG_BUILD) {
                 checkForUpdates(force = false, showNoUpdateFeedback = false)
             }
@@ -60,7 +69,9 @@ class UpdateViewModel @Inject constructor(
         if (!BuildConfig.FEATURE_IN_APP_UPDATES_ENABLED) return
         if (!force && !_uiState.value.updateBannerEnabled) return
 
-        viewModelScope.launch {
+        updateCheckJob?.cancel()
+        updateCheckJob = viewModelScope.launch {
+            val channel = _uiState.value.updateChannel
             _uiState.update {
                 it.copy(
                     isChecking = true,
@@ -72,7 +83,7 @@ class UpdateViewModel @Inject constructor(
             }
 
             val dismissedTag = updatePreferences.ignoredTag.first()
-            val result = updateRepository.getLatestUpdate()
+            val result = updateRepository.getLatestUpdate(channel)
             updatePreferences.setLastCheckAtMs(System.currentTimeMillis())
 
             result
@@ -100,7 +111,7 @@ class UpdateViewModel @Inject constructor(
                             showUnknownSourcesDialog = false,
                             errorMessage = null,
                             feedbackMessage = if (showNoUpdateFeedback && !remoteNewer) {
-                                context.getString(R.string.update_latest_version)
+                                noUpdateFeedback(channel)
                             } else {
                                 null
                             }
@@ -120,7 +131,11 @@ class UpdateViewModel @Inject constructor(
                             showUnknownSourcesDialog = false,
                             errorMessage = null,
                             feedbackMessage = if (showNoUpdateFeedback) {
-                                error.message ?: context.getString(R.string.update_error_check_failed)
+                                if (error is NoEligibleUpdateException) {
+                                    noUpdateFeedback(channel)
+                                } else {
+                                    error.message ?: context.getString(R.string.update_error_check_failed)
+                                }
                             } else {
                                 null
                             }
@@ -129,6 +144,13 @@ class UpdateViewModel @Inject constructor(
                 }
         }
     }
+
+    private fun noUpdateFeedback(channel: UpdateChannel): String =
+        if (channel == UpdateChannel.STABLE && VersionUtils.isPrerelease(BuildConfig.VERSION_NAME)) {
+            context.getString(R.string.update_waiting_for_stable)
+        } else {
+            context.getString(R.string.update_latest_version)
+        }
 
     fun dismissBanner() {
         val state = _uiState.value
@@ -168,6 +190,35 @@ class UpdateViewModel @Inject constructor(
             updatePreferences.setUpdateBannerEnabled(enabled)
             if (BuildConfig.FEATURE_IN_APP_UPDATES_ENABLED && enabled && changed && !BuildConfig.IS_DEBUG_BUILD) {
                 checkForUpdates(force = false, showNoUpdateFeedback = false)
+            }
+        }
+    }
+
+    fun setUpdateChannel(channel: UpdateChannel) {
+        val state = _uiState.value
+        if (state.updateChannel == channel) return
+
+        updateCheckJob?.cancel()
+        state.downloadedApkPath?.let { File(it).delete() }
+        _uiState.update {
+            it.copy(
+                updateChannel = channel,
+                isChecking = false,
+                update = null,
+                isUpdateAvailable = false,
+                isDownloading = false,
+                downloadProgress = null,
+                downloadedApkPath = null,
+                showBanner = false,
+                showUnknownSourcesDialog = false,
+                errorMessage = null,
+                feedbackMessage = null
+            )
+        }
+        viewModelScope.launch {
+            updatePreferences.setUpdateChannel(channel)
+            if (!BuildConfig.IS_DEBUG_BUILD) {
+                checkForUpdates(force = true, showNoUpdateFeedback = false)
             }
         }
     }

@@ -147,8 +147,8 @@ android {
         buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
         buildConfigField("String", "SENTRY_DSN", buildConfigString(sentryDsn))
 
-        // In-app updater (GitHub Releases)
-        buildConfigField("String", "GITHUB_OWNER", "\"tapframe\"")
+        // In-app updater (GitHub Releases) — points at our own fork, not upstream
+        buildConfigField("String", "GITHUB_OWNER", "\"cmtv21\"")
         buildConfigField("String", "GITHUB_REPO", "\"NuvioTV\"")
     }
 
@@ -157,6 +157,8 @@ android {
         create("full") {
             dimension = "distribution"
             buildConfigField("boolean", "FEATURE_PLUGINS_ENABLED", "true")
+            // Points at cmtv21/NuvioTV releases (GITHUB_OWNER/GITHUB_REPO above), not upstream.
+            // The repo must stay public: GitHubReleaseApi calls the releases API unauthenticated.
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_IN_APP_TRAILERS_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "true")
